@@ -4,7 +4,7 @@
 
 An animated boot menu for picking an operating system at power-on, written from scratch as a **UEFI program in Rust**. It replaces the GRUB or rEFInd screen: Windows in the middle, Kali on the left and Arch on the right, each with its own animation.
 
-[![The menu: starts up, goes through Windows, Kali and Arch, then launches Arch, which burns like paper](docs/demo.webp)](docs/demo.mp4)
+[![The menu: Windows opens its panes, Kali switches off like a TV and Arch burns like paper](docs/demo.webp)](docs/demo.mp4)
 
 *Recorded from the mockup (`maqueta/`), which matches the program. [1080p video](docs/demo.mp4).*
 

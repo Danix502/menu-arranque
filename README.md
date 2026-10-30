@@ -4,7 +4,7 @@
 
 Un menú de arranque animado para elegir sistema al encender el ordenador, hecho desde cero como **programa UEFI en Rust**. Sustituye a la pantalla de GRUB o rEFInd: Windows en el centro, Kali a la izquierda y Arch a la derecha, cada uno con su animación.
 
-[![El menú: arranca, pasa por Windows, Kali y Arch, y lanza Arch, que arde como un papel](docs/demo.webp)](docs/demo.mp4)
+[![El menú: Windows abre sus cristales, Kali se apaga como una tele y Arch arde como un papel](docs/demo.webp)](docs/demo.mp4)
 
 *Grabado de la maqueta (`maqueta/`), que es igual que el programa. [Vídeo a 1080p](docs/demo.mp4).*
 
