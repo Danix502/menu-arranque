@@ -1,0 +1,5 @@
+target/
+# los genera herramientas/sprites.py
+app/src/recursos.bin
+app/src/recursos.rs
+CLAUDE.md

@@ -1,0 +1,13 @@
+[package]
+name = "banco"
+version = "0.1.0"
+edition = "2024"
+
+# Mide en Windows lo que tarda en pintarse un fotograma del menú (el mismo código que la app UEFI)
+[dependencies]
+libm = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

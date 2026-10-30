@@ -1,0 +1,16 @@
+# Menú de arranque: qué abre cada opción. Va en la EFI como \EFI\menu-arranque\menu.conf.
+# Rutas dentro de la partición EFI. En Linux, las opciones son la línea del kernel con initrd=.
+# Lo de Arch y Kali se copia de las entradas de rEFInd (EFI/refind/refind.conf) al instalarlo.
+
+espera = 10
+
+windows = \EFI\Microsoft\Boot\bootmgfw.efi
+
+# arch = \<machine-id>\...\linux
+# arch_opciones = initrd=\<machine-id>\...\initrd root=... rw
+
+kali = \kali\vmlinuz
+# kali_opciones = initrd=\kali\initrd.img root=... rw
+
+rescate = \EFI\limine\BOOTX64.EFI
+refind = \EFI\refind\refind_x64.efi

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuego de Arch</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #000; color: #cfc9d6; font: 14px/1.45 system-ui, sans-serif; }
+  main { max-width: 1840px; margin: 0 auto; padding: 14px 16px 24px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 8px; }
+  h1 { font-size: 16px; margin: 0; color: #f1edf6; font-weight: 600; }
+  header p { margin: 0; color: #8d8698; font-size: 13px; }
+  button {
+    font: inherit; font-size: 13px; color: #cfc9d6; background: #221f29; border: 1px solid #34303d;
+    border-radius: 6px; padding: 3px 9px; cursor: pointer;
+  }
+  button:hover { border-color: #5a5266; }
+  button.activo { background: #3a1f5c; border-color: #9b5cff; color: #fff; }
+  #lienzo { display: block; width: 100%; height: auto; }
+  .rotulos { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .rotulos div { padding: 6px 14px 0; }
+  .rotulos b { display: block; color: #f1edf6; margin-bottom: 2px; }
+  .rotulos span { color: #9a93a6; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Fuego de Arch — ejemplos</h1>
+    <p>A tamaño real, como en la pantalla del portátil. Todas se pueden pasar a la app (solo enteros, capa a media resolución).</p>
+    <button id="elegido" class="activo">Arch elegido</button>
+  </header>
+  <canvas id="lienzo" width="1840" height="600" aria-label="Cuatro versiones del fuego del logo de Arch"></canvas>
+  <div class="rotulos">
+    <div><b>Ahora · Lenguas sueltas</b><span>Gotas con forma de lengua que salen del borde y suben. Lo que hay en el menú.</span></div>
+    <div><b>A · Llama de ruido</b><span>El fuego nace pegado al borde y se rompe en lenguas que suben y se deshacen; base casi blanca, puntas moradas.</span></div>
+    <div><b>B · Fuego nublado</b><span>Llamas cortas en el borde que alimentan una nube morada que sube y se enrosca despacio. La más nubosa.</span></div>
+    <div><b>C · Fuego vivo</b><span>El calor sube celda a celda y se enfría a parches: las lenguas se separan en bocanadas, como un fuego de verdad.</span></div>
+  </div>
+</main>
+<script src="fuentes.js"></script>
+<script>
+'use strict';
+// Comparación del fuego de Arch. Lo nuevo (A, B, C) se calcula en una capa de celdas de 2 px
+// con texturas de ruido ya hechas y una paleta de 256 colores, y se agranda ×2 con suavizado:
+// tal cual lo haría la app UEFI (las texturas y la envolvente, con Pillow al compilar).
+(async () => {
+  for (const [familia, uri, weight] of [['Simbolos', FUENTES.simbolos, '400'], ['Texto', FUENTES.texto500, '500']]) {
+    document.fonts.add(await new FontFace(familia, `url(${uri})`, { weight }).load());
+  }
+
+  const PW = 460, PH = 600, CX = PW / 2, CY = 400;
+  const lienzo = document.getElementById('lienzo'), ctx = lienzo.getContext('2d');
+  const L = 320, A = 760, LILA = [155, 92, 255], AURA = [139, 61, 255];
+  // Zona del fuego respecto al centro del logo (a escala 1), en celdas de 2 px
+  const ZX = -200, ZY = -380, ZW = 400, ZH = 520, C = 2, CW = ZW / C, CH = ZH / C;
+
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const lim = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  const aprox = (v, obj, vel, dt) => v + (obj - v) * (1 - Math.exp(-vel * dt));
+  const azar = (a, b) => a + Math.random() * (b - a);
+  const nuevo = (w, h = w) => Object.assign(document.createElement('canvas'), { width: w, height: h });
+
+  // ================================================================ logo y aura (como en menu.js)
+  function hacerLogo(color) {
+    const c = nuevo(L), g = c.getContext('2d'), glifo = '';
+    g.fillStyle = color; g.font = '400px Simbolos';
+    const m = g.measureText(glifo);
+    const w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * (1944 / 2048), h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    const k = Math.min(206 / w, 196 / h);
+    g.font = `${400 * k}px Simbolos`;
+    g.save(); g.beginPath(); g.rect(0, 0, (L + w * k) / 2 + 1, L); g.clip(); // fuera queda el ™
+    g.fillText(glifo, L / 2 + (m.actualBoundingBoxLeft - w / 2) * k, L / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) * k / 2);
+    g.restore();
+    return c;
+  }
+  function hacerAura() {
+    const c = nuevo(A), g = c.getContext('2d');
+    const r = g.createRadialGradient(A / 2, A / 2, 0, A / 2, A / 2, A / 2);
+    r.addColorStop(0, rgba(AURA, .3)); r.addColorStop(.3, rgba(AURA, .129)); r.addColorStop(.62, rgba(AURA, .039)); r.addColorStop(1, rgba(AURA, 0));
+    g.fillStyle = r; g.fillRect(0, 0, A, A);
+    const silueta = hacerLogo(rgba(AURA, 1));
+    g.filter = 'blur(44px)'; g.globalAlpha = .95; g.drawImage(silueta, A / 2 - L * .6, A / 2 - L * .6, L * 1.2, L * 1.2);
+    g.filter = 'blur(13px)'; g.globalAlpha = .8; g.drawImage(silueta, (A - L) / 2, (A - L) / 2);
+    return c;
+  }
+  const LOGO = hacerLogo(rgba(LILA, 1)), AURA_SPR = hacerAura();
+
+  function centrado(spr, x, y, esc, alfa) {
+    if (alfa <= .003) return;
+    ctx.globalAlpha = Math.min(1, alfa);
+    const w = spr.width * esc, h = spr.height * esc;
+    ctx.drawImage(spr, x - w / 2, y - h / 2, w, h);
+  }
+
+  // ================================================================ Ahora: lenguas sueltas (copiado de menu.js)
+  const LLAMA = [
+    ['rgba(255,248,255,1)', 'rgba(220,190,255,.95)', 'rgba(170,110,255,0)'],
+    ['rgba(225,195,255,.95)', 'rgba(155,92,255,.85)', 'rgba(107,0,214,0)'],
+    ['rgba(165,105,255,.85)', 'rgba(107,0,214,.65)', 'rgba(50,0,110,0)'],
+  ];
+  function hacerLengua([base, centro, punta]) {
+    const c = nuevo(32, 80), g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 74, 0, 4);
+    gr.addColorStop(0, base); gr.addColorStop(.4, centro); gr.addColorStop(1, punta);
+    g.filter = 'blur(2.5px)'; g.fillStyle = gr;
+    g.beginPath();
+    g.moveTo(16, 4);
+    g.bezierCurveTo(20, 26, 27, 42, 26, 58);
+    g.bezierCurveTo(25, 72, 7, 72, 6, 58);
+    g.bezierCurveTo(5, 42, 12, 26, 16, 4);
+    g.fill();
+    return c;
+  }
+  const LENGUA = LLAMA.map(hacerLengua);
+  const BORDES = (() => {
+    const d = LOGO.getContext('2d').getImageData(0, 0, L, L).data, pts = [];
+    for (let y = 4; y < L; y += 2) for (let x = 0; x < L; x += 2) {
+      if (d[(y * L + x) * 4 + 3] > 140 && d[((y - 4) * L + x) * 4 + 3] < 40) pts.push([x - L / 2, y - L / 2]);
+    }
+    return pts;
+  })();
+  const lenguas = [];
+  let acumLenguas = 0;
+  function moverLenguas(dt, fx, esc) {
+    acumLenguas += 300 * fx * dt;
+    while (acumLenguas >= 1) {
+      acumLenguas -= 1;
+      const p = BORDES[(Math.random() * BORDES.length) | 0];
+      lenguas.push({
+        x: (p[0] + azar(-2, 2)) * esc, y: p[1] * esc, vx: azar(-10, 10), vy: -azar(60, 130), t: 0, vida: azar(.32, .7),
+        tam: azar(7, 13) * esc, fase: azar(0, 6.28), frec: azar(3, 6), amp: azar(1.5, 4.5),
+      });
+    }
+    for (let i = lenguas.length - 1; i >= 0; i--) {
+      const p = lenguas[i];
+      p.t += dt; p.vy -= 160 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.t >= p.vida) lenguas.splice(i, 1);
+    }
+  }
+  function pintarLenguas(ox, oy, fx) {
+    ctx.globalCompositeOperation = 'lighter';
+    for (const p of lenguas) {
+      const v = p.t / p.vida;
+      const w = p.tam * (1 - .55 * v), h = w * (2.1 + 1.8 * v);
+      const x = ox + p.x + Math.sin(p.fase + p.t * p.frec * 6.28) * p.amp;
+      ctx.globalAlpha = lim(Math.min(1, p.t * 14) * Math.pow(1 - v, 1.2) * (.75 + .25 * Math.sin(p.fase * 3 + p.t * 31)) * Math.max(fx, .25));
+      ctx.drawImage(LENGUA[v < .22 ? 0 : v < .55 ? 1 : 2], x - w / 2, oy + p.y - h * .86, w, h);
+    }
+  }
+
+  // ================================================================ lo común de A, B y C (en la app: Pillow al compilar)
+  // Silueta del logo en celdas (0..1)
+  const MASCARA = (() => {
+    const c = nuevo(CW, CH), g = c.getContext('2d');
+    g.drawImage(LOGO, (-L / 2 - ZX) / C, (-L / 2 - ZY) / C, L / C, L / C);
+    const d = g.getImageData(0, 0, CW, CH).data;
+    return Float32Array.from({ length: CW * CH }, (_, i) => d[i * 4 + 3] / 255);
+  })();
+
+  // Celdas que tienen logo encima en su columna (el hueco de abajo y bajo los pies), suavizado
+  const DEBAJO = (() => {
+    const D = new Float32Array(CW * CH);
+    for (let x = 0; x < CW; x++) {
+      let hay = 0;
+      for (let y = 0; y < CH; y++) { D[y * CW + x] = hay; hay = Math.max(hay, MASCARA[y * CW + x]); }
+    }
+    desenfocar(D, 3);
+    return D;
+  })();
+
+  // Ruido de Perlin que se repite cada 256 (se puede desplazar sin costuras), ecualizado a 0..255
+  function textura(semilla, p0, octavas) {
+    let s = semilla >>> 0;
+    const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const N = 256, f = new Float32Array(N * N), fade = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+    for (let o = 0, p = p0, amp = 1; o < octavas; o++, p *= 2, amp *= .5) {
+      const gx = new Float32Array(p * p), gy = new Float32Array(p * p);
+      for (let i = 0; i < p * p; i++) { const a = rnd() * 2 * Math.PI; gx[i] = Math.cos(a); gy[i] = Math.sin(a); }
+      const paso = N / p;
+      for (let y = 0; y < N; y++) {
+        const fy = y / paso, yi = Math.floor(fy), dy = fy - yi, v = fade(dy), j0 = (yi % p) * p, j1 = ((yi + 1) % p) * p;
+        for (let x = 0; x < N; x++) {
+          const fx = x / paso, xi = Math.floor(fx), dx = fx - xi, u = fade(dx), i0 = xi % p, i1 = (xi + 1) % p;
+          const n00 = gx[j0 + i0] * dx + gy[j0 + i0] * dy, n10 = gx[j0 + i1] * (dx - 1) + gy[j0 + i1] * dy;
+          const n01 = gx[j1 + i0] * dx + gy[j1 + i0] * (dy - 1), n11 = gx[j1 + i1] * (dx - 1) + gy[j1 + i1] * (dy - 1);
+          const a = n00 + (n10 - n00) * u, b = n01 + (n11 - n01) * u;
+          f[y * N + x] += amp * (a + (b - a) * v);
+        }
+      }
+    }
+    const orden = Array.from({ length: N * N }, (_, i) => i).sort((a, b) => f[a] - f[b]);
+    const t = new Uint8Array(N * N);
+    orden.forEach((i, r) => { t[i] = (r * 256 / (N * N)) | 0; });
+    return t;
+  }
+  const RUIDO = textura(7, 4, 5), GIRO = textura(19, 2, 3);
+
+  // Paletas de 256 colores (mezcla aditiva: el negro no suma)
+  function rampa(paradas) {
+    const t = new Uint8Array(256 * 3);
+    for (let v = 0; v < 256; v++) {
+      let k = 0;
+      while (k < paradas.length - 2 && v > paradas[k + 1][0]) k++;
+      const [v0, ...c0] = paradas[k], [v1, ...c1] = paradas[k + 1], f = lim((v - v0) / (v1 - v0));
+      for (let j = 0; j < 3; j++) t[v * 3 + j] = Math.round(c0[j] + (c1[j] - c0[j]) * f);
+    }
+    return t;
+  }
+  const FUEGO = rampa([[0, 0, 0, 0], [40, 18, 0, 44], [95, 64, 10, 150], [145, 116, 48, 230], [190, 155, 92, 255], [228, 204, 166, 255], [255, 244, 236, 255]]);
+  const HUMO = rampa([[0, 0, 0, 0], [90, 24, 4, 56], [170, 54, 16, 118], [255, 88, 36, 176]]);
+
+  function desenfocar(F, r) {
+    const tmp = new Float32Array(F.length), n = 2 * r + 1;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+      let s = 0;
+      for (let k = -r; k <= r; k++) s += F[y * CW + lim(x + k, 0, CW - 1)];
+      tmp[y * CW + x] = s / n;
+    }
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+      let s = 0;
+      for (let k = -r; k <= r; k++) s += tmp[lim(y + k, 0, CH - 1) * CW + x];
+      F[y * CW + x] = s / n;
+    }
+  }
+
+  // Envolvente (0..255): la silueta arrastrada hacia arriba (el calor sube) y hacia el centro
+  // (en cono: cada fila toma la de debajo un poco más de afuera), suavizada; dentro del logo
+  // casi nada, porque el fuego nace en el borde
+  function envolvente(largo, cono, radio, dentro) {
+    const d = Math.exp(-C / largo), S = new Float32Array(CW * CH), xc = CW / 2;
+    const en = (y, x) => (x >= 0 && x < CW ? S[y * CW + x] : 0);
+    for (let y = CH - 1; y >= 0; y--) for (let x = 0; x < CW; x++) {
+      let previo = 0;
+      if (y < CH - 1) {
+        const xs = xc + (x - xc) * (1 + cono), x0 = Math.floor(xs), f = xs - x0;
+        previo = en(y + 1, x0) * (1 - f) + en(y + 1, x0 + 1) * f;
+      }
+      S[y * CW + x] = Math.max(MASCARA[y * CW + x], previo * d);
+    }
+    desenfocar(S, radio); desenfocar(S, radio);
+    for (let i = 0; i < CW * CH; i++) {
+      const y = Math.floor(i / CW);
+      // dentro del logo y debajo de él (el hueco, bajo los pies) casi nada; se apaga en los bordes de la capa
+      S[i] *= (1 - dentro * Math.max(MASCARA[i], DEBAJO[i])) * lim(y / 30) * lim((CH - 1 - y) / 20);
+    }
+    return Uint8Array.from(S, (v) => Math.round(lim(v) * 255));
+  }
+
+  const capa = nuevo(CW, CH), cg = capa.getContext('2d'), img = cg.createImageData(CW, CH), px = img.data;
+  for (let i = 3; i < px.length; i += 4) px[i] = 255;
+  function poner(i, v, h = 0) {
+    const a = (v <= 0 ? 0 : v >= 255 ? 255 : v | 0) * 3, b = (h <= 0 ? 0 : h >= 255 ? 255 : h | 0) * 3, o = i * 4;
+    px[o] = FUEGO[a] + HUMO[b]; px[o + 1] = FUEGO[a + 1] + HUMO[b + 1]; px[o + 2] = FUEGO[a + 2] + HUMO[b + 2];
+  }
+  function pintarCapa(ox, oy, esc) {
+    cg.putImageData(img, 0, 0);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(capa, ox + ZX * esc, oy + ZY * esc, ZW * esc, ZH * esc);
+  }
+  const idx = (fila, col) => ((fila & 255) << 8) | (col & 255);
+
+  // ================================================================ A: llama de ruido
+  // Dos capas de ruido estirado en vertical suben a distinta velocidad y otra lo tuerce de lado;
+  // donde el ruido es bajo se come la envolvente: abajo queda casi entera y arriba solo las puntas
+  const ENV_A = envolvente(140, .007, 3, .8);
+  function llamaRuido(t, fx) {
+    const sube = (t * 120) | 0, sube2 = (t * 260) | 0, gira = (t * 34) | 0;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+      const xs = x + ((GIRO[idx(y * 2 + gira, x * 2)] - 128) >> 4);
+      const e = xs >= 0 && xs < CW ? ENV_A[y * CW + xs] * fx : 0;
+      let v = 0;
+      if (e > 3) {
+        const n1 = RUIDO[idx(((y * 3) >> 1) + sube, xs * 3)], n2 = RUIDO[idx(y * 3 + sube2 + 128, xs * 5 + 64)];
+        v = e * 1.5 - (255 - (n1 * 2 + n2) / 3) * 1.2;
+      }
+      poner(y * CW + x, v);
+    }
+  }
+
+  // ================================================================ B: fuego nublado
+  // Llamas cortas pegadas al borde + una nube ancha que sube despacio, torcida dos veces (se enrosca)
+  const ENV_B_CERCA = envolvente(38, .004, 2, .85), ENV_B_NUBE = envolvente(230, .006, 8, .9);
+  function llamaNublada(t, fx) {
+    const sube = (t * 200) | 0, lento = (t * 46) | 0, g1 = (t * 16) | 0, g2 = (t * 11) | 0;
+    for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) {
+      const w1 = GIRO[idx(y + g1, x)] - 128, w2 = GIRO[idx(x + 97 + g2, y + (w1 >> 3))] - 128;
+      const xs = lim(x + (w1 >> 3), 0, CW - 1), ys = lim(y + (w2 >> 4), 0, CH - 1);
+      const nube = ENV_B_NUBE[ys * CW + xs] * fx, cerca = ENV_B_CERCA[y * CW + x] * fx;
+      const humo = nube > 3 ? nube * RUIDO[idx(ys + lento, xs * 2)] / 255 * 1.9 - 30 : 0;
+      const fuego = cerca > 3 ? cerca * 1.5 - (255 - RUIDO[idx(y * 2 + sube, x * 4)]) * .95 : 0;
+      poner(y * CW + x, fuego, humo);
+    }
+  }
+
+  // ================================================================ C: fuego vivo (el calor sube y se enfría)
+  // Cada paso, cada celda es la media de las de debajo menos un enfriamiento que sale de un ruido
+  // que sube a la vez que el fuego; el calor nace justo encima del borde de arriba del logo.
+  // Cada celda mira un poco al azar a un lado (el fuego tiembla) y los lados se enfrían más
+  // (el fuego se cierra al subir)
+  const CALOR = new Uint8Array(CW * (CH + 2));
+  const ENFRIA = Uint8Array.from(RUIDO, (n) => Math.round(Math.pow(n / 255, 2.5) * 19));
+  const LADO = Uint8Array.from({ length: CW }, (_, x) => Math.round(Math.pow((x - CW / 2) / (CW / 2), 2) * 5));
+  const NACE = [];
+  for (let y = 0; y < CH - 3; y++) for (let x = 1; x < CW - 1; x++) {
+    if (MASCARA[y * CW + x] < .5 && MASCARA[(y + 3) * CW + x] > .5) NACE.push(y * CW + x);
+  }
+  let enfria = 0, semilla = 12345;
+  function pasoCalor(t, fx) {
+    for (let y = 0; y < CH; y++) for (let x = 2; x < CW - 2; x++) {
+      semilla = (Math.imul(semilla, 1103515245) + 12345) >>> 0;
+      const lado = semilla >>> 30, b = (y + 1) * CW + x + (lado === 0 ? -1 : lado === 3 ? 1 : 0);
+      const s = CALOR[b - 1] + CALOR[b] + CALOR[b + 1] + CALOR[b + CW];
+      CALOR[y * CW + x] = Math.max(0, (s >> 2) - ENFRIA[idx(y + enfria, x * 2)] - LADO[x]);
+    }
+    enfria++;
+    const parches = (t * 40) | 0;
+    for (const i of NACE) {
+      const x = i % CW, parche = GIRO[idx(parches, x * 5)];
+      CALOR[i] = Math.min(255, (90 + parche * .65 + Math.random() * 60) * fx);
+    }
+  }
+  function llamaViva() {
+    for (let i = 0; i < CW * CH; i++) poner(i, CALOR[i] * (1 - .85 * MASCARA[i]) * lim(Math.floor(i / CW) / 40));
+  }
+
+  // ================================================================ bucle
+  const CAPAS = [null, llamaRuido, llamaNublada, llamaViva];
+  let a = 1, objetivo = 1, antes = performance.now(), t = 0, pasos = 0;
+  const boton = document.getElementById('elegido');
+  boton.addEventListener('click', () => {
+    objetivo = 1 - objetivo;
+    boton.classList.toggle('activo', objetivo === 1);
+    boton.textContent = objetivo ? 'Arch elegido' : 'Arch sin elegir';
+  });
+
+  function cuadro(ahora) {
+    const dt = Math.min(.05, (ahora - antes) / 1000);
+    antes = ahora; t += dt;
+    a = aprox(a, objetivo, 8, dt);
+    const esc = .74 + .26 * a, alfa = (.42 + .58 * a), fx = a;
+    moverLenguas(dt, fx, esc);
+    for (pasos += dt * 70; pasos >= 1; pasos--) pasoCalor(t, fx);
+
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+    for (let k = 0; k < 4; k++) {
+      const ox = k * PW + CX, oy = CY;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(k * PW, 0, PW, PH); ctx.clip();
+      ctx.globalCompositeOperation = 'lighter';
+      centrado(AURA_SPR, ox, oy, esc, fx * (.8 + .2 * Math.sin(t * 2 * Math.PI / 3.4)));
+      ctx.globalCompositeOperation = 'source-over';
+      centrado(LOGO, ox, oy, esc, alfa);
+      if (k === 0) pintarLenguas(ox, oy, fx);
+      else { CAPAS[k](t, fx); pintarCapa(ox, oy, esc); }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.font = '500 25px Texto'; ctx.letterSpacing = '8px'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#ece8f2'; ctx.globalAlpha = .3 + .7 * a;
+      ctx.fillText('ARCH LINUX', ox + 4, oy + 168);
+      ctx.globalAlpha = a; ctx.fillStyle = rgba(LILA, 1);
+      ctx.fillRect(ox - 22, oy + 188, 44, 2);
+      ctx.restore();
+      if (k) { ctx.globalAlpha = 1; ctx.fillStyle = '#1a1620'; ctx.fillRect(k * PW, 0, 1, PH); }
+    }
+    requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+})();
+</script>
+</body>
+</html>

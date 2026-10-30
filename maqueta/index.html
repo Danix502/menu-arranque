@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menú de arranque — maqueta</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  /* La escena mide siempre 1920×1080 (la pantalla del portátil) y se escala para caber */
+  #pantalla {
+    position: fixed; inset: 0; margin: auto; display: block;
+    width: min(100vw, calc(100vh * 16 / 9)); height: min(100vh, calc(100vw * 9 / 16));
+  }
+  #panel {
+    position: fixed; top: 12px; right: 12px; width: 300px; z-index: 2;
+    font: 13px/1.35 system-ui, sans-serif; color: #cfc9d6;
+    background: rgba(18, 16, 22, .9); border: 1px solid #2c2834; border-radius: 10px; padding: 10px 12px 12px;
+  }
+  #panel h1 { font-size: 13px; margin: 0 0 8px; color: #f1edf6; font-weight: 600; letter-spacing: .04em; }
+  #panel .fila { margin-top: 8px; }
+  #panel .fila > span { display: block; color: #8d8698; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+  #panel .botones { display: flex; flex-wrap: wrap; gap: 4px; }
+  #panel button {
+    font: inherit; font-size: 12px; color: #cfc9d6; background: #221f29; border: 1px solid #34303d;
+    border-radius: 6px; padding: 3px 7px; cursor: pointer;
+  }
+  #panel button:hover { border-color: #5a5266; }
+  #panel button.activo { background: #3a1f5c; border-color: #9b5cff; color: #fff; }
+  #panel p { margin: 10px 0 0; color: #8d8698; font-size: 11.5px; }
+  #panel kbd { font: 11px ui-monospace, monospace; background: #2a2632; border: 1px solid #3a3544; border-radius: 4px; padding: 0 4px; color: #e6e1ec; }
+</style>
+</head>
+<body>
+<canvas id="pantalla" width="1920" height="1080" aria-label="Maqueta del menú de arranque"></canvas>
+
+<div id="panel">
+  <h1>Maqueta del menú de arranque</h1>
+  <div class="fila"><span>Fondo (sombras rojas y moradas)</span><div class="botones">
+    <button data-k="fondo" data-v="humo">Humo que deriva</button>
+    <button data-k="fondo" data-v="bordes">Sombras en los bordes</button>
+    <button data-k="fondo" data-v="sube">Humo que sube</button>
+    <button data-k="fondo" data-v="negro">Solo negro</button>
+  </div></div>
+  <div class="fila"><span>Windows</span><div class="botones">
+    <button data-k="windows" data-v="cuadros">Cuadros que laten</button>
+    <button data-k="windows" data-v="respira">Aura y destello</button>
+    <button data-k="windows" data-v="rayos">Rayos de luz</button>
+  </div></div>
+  <div class="fila"><span>Arch</span><div class="botones">
+    <button data-k="arch" data-v="nublado">Fuego nublado</button>
+    <button data-k="arch" data-v="llama">Llama morada</button>
+    <button data-k="arch" data-v="orbita">Chispas en órbita</button>
+    <button data-k="arch" data-v="ondas">Ondas</button>
+  </div></div>
+  <div class="fila"><span>Kali</span><div class="botones">
+    <button data-k="kali" data-v="glitch">Glitch</button>
+    <button data-k="kali" data-v="latido">Latido</button>
+    <button data-k="kali" data-v="brasas">Brasas rojas</button>
+  </div></div>
+  <div class="fila"><span>Lados</span><div class="botones">
+    <button data-k="orden" data-v="kwa">Kali · Windows · Arch</button>
+    <button data-k="orden" data-v="awk">Arch · Windows · Kali</button>
+  </div></div>
+  <div class="fila"><span>Al arrancar</span><div class="botones">
+    <button data-k="lanzar" data-v="propio">Propio de cada sistema</button>
+    <button data-k="lanzar" data-v="comun">Igual para todos</button>
+  </div></div>
+  <div class="fila"><span>Pista de teclas abajo</span><div class="botones">
+    <button data-k="pista" data-v="si">Sí</button>
+    <button data-k="pista" data-v="no">No</button>
+  </div></div>
+  <p><kbd>←</kbd> <kbd>→</kbd> elegir · <kbd>Intro</kbd> arrancar · <kbd>Esc</kbd> más opciones<br>
+     <kbd>R</kbd> volver a empezar · <kbd>F</kbd> pantalla completa (Esc mantenido la quita) · <kbd>H</kbd> oculta este panel</p>
+</div>
+
+<script src="fuentes.js"></script>
+<script src="menu.js"></script>
+</body>
+</html>
